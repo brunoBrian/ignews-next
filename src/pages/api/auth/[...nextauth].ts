@@ -1,8 +1,8 @@
+import { query as q } from 'faunadb';
 import NextAuth from 'next-auth'
 import Providers from 'next-auth/providers'
 
-console.log(process.env);
-
+import { fauna } from '../../../services/fauna';
 
 export default NextAuth({
   providers: [
@@ -10,6 +10,44 @@ export default NextAuth({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       scope: 'read:user'
-    })
-  ]
+    }),
+  ],
+  callbacks: {
+    async signIn(user) {
+      const { email }= user;
+
+      try {
+        await fauna.query(
+          q.If(
+            q.Not(
+              q.Exists(
+                q.Match(
+                  q.Index('user_by_email'),
+                  q.Casefold(email as string)
+                )
+              )
+            ),
+            q.Create(
+              q.Collection('users'),
+              {
+                data: {
+                  email
+                }
+              }
+            ),
+            q.Get(
+              q.Match(
+                q.Index('user_by_email'),
+                q.Casefold(email as string)
+              )
+            )
+          )
+        )
+
+        return true;
+      }catch {
+        return false;
+      }
+    }
+  }
 })
