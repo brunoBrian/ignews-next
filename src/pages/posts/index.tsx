@@ -1,9 +1,25 @@
+import { GetStaticProps } from 'next';
 import type { AppProps } from 'next/app'
 import Head from 'next/head';
+import Prismic from '@prismicio/client'
+
+import getPrismicClient from '../../services/prismic';
 
 import styles from './styles.module.scss';
+import { RichText } from 'prismic-dom';
 
-function Posts({ Component, pageProps }: AppProps) {
+type Post = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  updatedAt: string;
+}
+
+interface PostsProps {
+  posts: Post[];
+}
+
+function Posts({ posts }: PostsProps) {
   return (
     <>
       <Head>
@@ -12,25 +28,48 @@ function Posts({ Component, pageProps }: AppProps) {
 
       <main className={styles.container}>
         <div className={styles.posts}>
-          <a href='#'>
-            <time>12 de outubro de 2010</time>
-            <strong>Creating a new repo</strong>
-            <p>In this guide, we will learn how to create a new project using Lerna</p>
-          </a>
-          <a href='#'>
-            <time>12 de outubro de 2010</time>
-            <strong>Creating a new repo</strong>
-            <p>In this guide, we will learn how to create a new project using Lerna</p>
-          </a>
-          <a href='#'>
-            <time>12 de outubro de 2010</time>
-            <strong>Creating a new repo</strong>
-            <p>In this guide, we will learn how to create a new project using Lerna</p>
-          </a>
+          {posts.map(post => (
+            <a href='#' key={post.slug}>
+              <time>{post.updatedAt}</time>
+              <strong>{post.title}</strong>
+              <p>{post.excerpt}</p>
+            </a>
+          ))}
         </div>
       </main>
     </>
   )
+}
+
+export const getStaticProps: GetStaticProps = async () => {
+  const prismic = getPrismicClient();
+
+  const response = await prismic.query([
+    Prismic.predicates.at('document.type', 'post'),
+  ], {
+    fetch: ['publication.type', 'publication.content'],
+    pageSize: 100
+  })
+
+  const posts = response.results.map(post => {
+    return {
+      slug: post.uid,
+      title: RichText.asText(post.data.title),
+      excerpt: post.data.content.find((content: any) => content.type === 'paragraph')?.text ?? '',
+      updatedAt: new Date(post.last_publication_date as string).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      })
+    }
+  })
+  
+
+  return {
+    props: {
+      posts
+    }
+  }
 }
 
 export default Posts;
