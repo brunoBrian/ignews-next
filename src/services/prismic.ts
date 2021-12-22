@@ -7,7 +7,7 @@ import {
   Router
 } from '../../prismicConfiguration'
 
-const getPrismicClient = (req = null) => (
+const getPrismicClient = (req: any) => (
   Prismic.client(apiEndpoint, createClientOptions(req, accessToken))
 );
 
